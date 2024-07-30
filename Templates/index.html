@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <title>Upload and Download WebP Images</title>
+  <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    .preview-container {
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: 10px;
+      height: 200px;
+      overflow-y: scroll;
+      position: relative;
+    }
+    .preview, .converted-preview {
+      display: flex;
+      flex-wrap: wrap;
+    }
+    .preview img, .converted-preview img {
+      margin: 5px;
+      max-width: 100px;
+      max-height: 100px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: 5px;
+    }
+    .converted-preview img {
+      position: relative;
+    }
+    .converted-preview .download-button {
+      display: none;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background-color: rgba(0, 0, 0, 0.5);
+      color: white;
+      border: none;
+      border-radius: 5px;
+      padding: 5px 10px;
+      cursor: pointer;
+    }
+    .converted-preview img:hover + .download-button,
+    .download-button:hover {
+      display: block;
+    }
+    .file-checkbox {
+      position: absolute;
+      top: 5px;
+      right: 5px;
+      z-index: 10;  /* Ensure checkboxes are above images */
+    }
+    .hidden {
+      display: none;
+    }
+    .page-padding {
+      padding-bottom: 90px;
+    }
+    .dropzone {
+      border: 2px dashed #ddd;
+      border-radius: 4px;
+      padding: 20px;
+      text-align: center;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    .dropzone.dragover {
+      border-color: #007bff;
+      background-color: #f8f9fa;
+    }
+  </style>
+</head>
+<body>
+  <div class="container mt-5 page-padding">
+    <h1 class="mb-4">Upload WebP Images</h1>
+    <form method="post" enctype="multipart/form-data" id="uploadForm">
+      <div class="preview-container" id="preview-container">
+        <div class="preview" id="preview"></div>
+        <div class="dropzone" id="dropzone">Drag & Drop Images Here or Click to Upload</div>
+        <input type="file" name="files[]" id="fileInput" class="form-control-file d-none" multiple accept=".webp">
+      </div>
+      <button type="submit" class="btn btn-primary mt-3">Upload</button>
+    </form>
+
+    {% if files %}
+      <h2 class="mt-5">Download Converted Images</h2>
+      <div class="form-check mb-2">
+        <input type="checkbox" class="form-check-input" id="selectAll">
+        <label class="form-check-label" for="selectAll">Select All</label>
+      </div>
+      <form method="post" action="{{ url_for('download_zip') }}">
+        <div class="preview-container">
+          <div class="converted-preview">
+            {% for filename, file_path in files %}
+              <div style="position: relative;">
+                <input type="checkbox" class="form-check-input file-checkbox" name="files" value="{{ file_path }}">
+                <img src="{{ url_for('download', filename=filename, file_path=file_path) }}" alt="Converted Image">
+                <a href="{{ url_for('download', filename=filename, file_path=file_path) }}" class="download-button btn btn-success btn-sm">Download</a>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+        <button type="submit" class="btn btn-secondary mt-3 hidden" id="downloadZipButton">Download Selected as ZIP</button>
+      </form>
+    {% endif %}
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', (event) => {
+      const fileInput = document.getElementById('fileInput');
+      const dropzone = document.getElementById('dropzone');
+
+      fileInput.addEventListener('change', handleFiles);
+      dropzone.addEventListener('dragover', function(event) {
+        event.preventDefault();
+        dropzone.classList.add('dragover');
+      });
+      dropzone.addEventListener('dragleave', function(event) {
+        dropzone.classList.remove('dragover');
+      });
+      dropzone.addEventListener('drop', function(event) {
+        event.preventDefault();
+        dropzone.classList.remove('dragover');
+        const files = event.dataTransfer.files;
+        fileInput.files = files;
+        handleFiles({ target: { files: files } });
+      });
+      dropzone.addEventListener('click', function() {
+        fileInput.click();
+      });
+
+      document.getElementById('selectAll').addEventListener('change', function(event) {
+        const checkboxes = document.querySelectorAll('.file-checkbox');
+        for (const checkbox of checkboxes) {
+          checkbox.checked = event.target.checked;
+        }
+        toggleDownloadButton();
+      });
+
+      document.querySelectorAll('.file-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', toggleDownloadButton);
+      });
+    });
+
+    function handleFiles(event) {
+      const files = event.target.files;
+      const preview = document.getElementById('preview');
+      preview.innerHTML = '';
+      for (const file of files) {
+        if (file.type === 'image/webp') {
+          const reader = new FileReader();
+          reader.onload = function(e) {
+            const img = document.createElement('img');
+            img.src = e.target.result;
+            preview.appendChild(img);
+          }
+          reader.readAsDataURL(file);
+        } else {
+          alert('Please upload only WebP images.');
+          event.target.value = ''; // Clear the input
+          preview.innerHTML = ''; // Clear the preview
+          break;
+        }
+      }
+    }
+
+    function toggleDownloadButton() {
+      const checkboxes = document.querySelectorAll('.file-checkbox:checked');
+      const downloadButton = document.getElementById('downloadZipButton');
+      if (checkboxes.length > 0) {
+        downloadButton.classList.remove('hidden');
+      } else {
+        downloadButton.classList.add('hidden');
+      }
+    }
+  </script>
+  <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js"></script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+</html>
